@@ -3,61 +3,417 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>東京探索者 2026</title>
-<link href="https://fonts.googleapis.com/css2?family=Noto+Serif+TC:wght@400;600&display=swap" rel="stylesheet">
+<title>東京探索者</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Noto+Serif+TC:wght@300;400;600&display=swap" rel="stylesheet">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.2/babel.min.js"></script>
 <style>
   *{box-sizing:border-box;margin:0;padding:0;}
-  body{font-family:'Noto Serif TC',serif;background:#F5EFE6;color:#2C1A0E;line-height:1.6;padding:20px;}
-  .container{max-width:800px;margin:0 auto;background:#fff;padding:30px;border-radius:15px;box-shadow:0 5px 20px rgba(0,0,0,0.1);}
-  .day{margin-bottom:30px;border-bottom:1px solid #C8B89A;padding-bottom:20px;}
-  h1{text-align:center;color:#6B4C3B;margin-bottom:30px;}
-  h2{color:#A0785A;margin-bottom:15px;}
-  .event{display:flex;gap:15px;margin-bottom:10px;align-items:center;}
-  .time{font-family:monospace;font-weight:bold;color:#8A7260;width:60px;}
-  a{text-decoration:none;color:#B85C38;font-weight:600;}
+  body{font-family:'Noto Serif TC',serif;background:#F5EFE6;color:#2C1A0E;}
+  input[type=date]::-webkit-calendar-picker-indicator{filter:invert(1);cursor:pointer;}
+  input[type=time]::-webkit-calendar-picker-indicator{display:none;}
+  ::-webkit-scrollbar{height:4px;width:4px;}
+  ::-webkit-scrollbar-track{background:transparent;}
+  ::-webkit-scrollbar-thumb{background:#C8B89A;border-radius:2px;}
 </style>
 </head>
 <body>
 <div id="root"></div>
 <script type="text/babel">
-const { useState } = React;
+const { useState, useEffect, useCallback, useRef } = React;
 
-// 修正後的正確地圖語法
+const C = {
+  sand:"#C8B89A", clay:"#A0785A", umber:"#6B4C3B", bark:"#3D2B1F",
+  cream:"#F5EFE6", parchment:"#EAE0D0", moss:"#6B7C5C", sage:"#A3AF8F",
+  rust:"#B85C38", gold:"#C9973A", text:"#2C1A0E", muted:"#8A7260", blue:"#7BA3C0",
+};
+
+const TYPE_META = {
+  flight:{ label:"✈ 交通", color:C.blue },
+  hotel: { label:"🏠 住宿", color:C.moss },
+  food:  { label:"🍴 美食", color:C.rust },
+  shop:  { label:"🛍 購物", color:C.gold },
+  sight: { label:"📸 景點", color:C.sage },
+};
+
+const DEFAULT = {
+  heroTitle:"東京探索者", heroSub:"Tōkyō Explorer",
+  dateStart:"2025-05-21", dateEnd:"2025-05-26",
+  days:[
+    { id:"d1", title:"出發！飛向東京", subtitle:"Thursday · May 21, 2025", events:[
+      {id:"e101",time:"08:00",emoji:"✈️",name:"高雄國際機場",note:"",type:"flight",highlight:false},
+      {id:"e102",time:"12:40",emoji:"🛬",name:"成田機場第二航廈",note:"自訂",type:"flight",highlight:false},
+      {id:"e103",time:"13:55",emoji:"🛍️",name:"酒酒井 PREMIUM OUTLETS",note:"",type:"shop",highlight:false},
+      {id:"e104",time:"16:55",emoji:"🏬",name:"MONA 新浦安（1F kaldi）",note:"",type:"shop",highlight:false},
+      {id:"e105",time:"17:58",emoji:"🪙",name:"3COINS",note:"",type:"shop",highlight:false},
+      {id:"e106",time:"19:00",emoji:"👗",name:"UNIQLO 艾妥列新浦安店",note:"",type:"shop",highlight:false},
+      {id:"e107",time:"20:04",emoji:"🛒",name:"永旺 STYLE 新浦安店",note:"",type:"shop",highlight:false},
+      {id:"e108",time:"21:09",emoji:"🥩",name:"Yakiniku Ichiri（烤肉）",note:"待預約",type:"food",highlight:false},
+      {id:"e109",time:"22:09",emoji:"🏨",name:"La'gent Hotel Tokyo Bay",note:"住宿",type:"hotel",highlight:false},
+    ]},
+    { id:"d2", title:"東京迪士尼樂園", subtitle:"Friday · May 22, 2025", events:[
+      {id:"e201",time:"08:00",emoji:"🏨",name:"La'gent Hotel Tokyo Bay",note:"住宿",type:"hotel",highlight:false},
+      {id:"e202",time:"09:00",emoji:"🎡",name:"東京迪士尼樂園",note:"✨ 全日遊玩，盡情享受魔法世界！",type:"sight",highlight:true},
+      {id:"e203",time:"21:35",emoji:"🏠",name:"岩木マンション",note:"住宿",type:"hotel",highlight:false},
+    ]},
+    { id:"d3", title:"川崎購物巡禮", subtitle:"Saturday · May 23, 2025", events:[
+      {id:"e301",time:"09:30",emoji:"🏠",name:"岩木マンション（住宿）",note:"自訂",type:"hotel",highlight:false},
+      {id:"e302",time:"10:25",emoji:"🌟",name:"川崎銀柳街",note:"",type:"sight",highlight:false},
+      {id:"e303",time:"11:29",emoji:"🛍️",name:"LA CITTADELLA 拉齊塔德拉",note:"好像 outlet",type:"shop",highlight:false},
+      {id:"e304",time:"13:40",emoji:"🏬",name:"Mitsui Shopping Park LAZONA 川崎",note:"",type:"shop",highlight:false},
+      {id:"e305",time:"15:49",emoji:"🛒",name:"Sanwa Lazona Kawasaki Store",note:"",type:"shop",highlight:false},
+      {id:"e306",time:"17:49",emoji:"🍲",name:"岩木マンション（住宿—煮火鍋）",note:"",type:"food",highlight:false},
+    ]},
+    { id:"d4", title:"上野美食＆購物", subtitle:"Sunday · May 24, 2025", events:[
+      {id:"e401",time:"08:00",emoji:"🏠",name:"岩木マンション（住宿）",note:"自訂",type:"hotel",highlight:false},
+      {id:"e402",time:"09:22",emoji:"🍰",name:"Domremy outlet 上野丸井店",note:"甜點 ×3",type:"food",highlight:false},
+      {id:"e403",time:"10:29",emoji:"💊",name:"OS Drug 上野店藥妝店",note:"",type:"shop",highlight:false},
+      {id:"e404",time:"11:36",emoji:"🥩",name:"一頭牛燒肉 房家",note:"",type:"food",highlight:false},
+      {id:"e405",time:"12:43",emoji:"🍖",name:"Tonkatsu Yamabe",note:"炸豬排 ×3",type:"food",highlight:false},
+      {id:"e406",time:"13:50",emoji:"🍜",name:"Ramen Kamo to Negi Ueno",note:"",type:"food",highlight:false},
+      {id:"e407",time:"14:57",emoji:"🍬",name:"二木菓子 第一營業所",note:"",type:"food",highlight:false},
+      {id:"e408",time:"16:04",emoji:"👗",name:"UNIQLO 御徒町店",note:"",type:"shop",highlight:false},
+      {id:"e409",time:"17:04",emoji:"🥙",name:"Tam Tam（石釜燒吐司 ×2）",note:"",type:"food",highlight:false},
+      {id:"e410",time:"18:25",emoji:"🏠",name:"岩木マンション（住宿）",note:"",type:"hotel",highlight:false},
+    ]},
+    { id:"d5", title:"吉祥寺・東京鐵塔・池袋", subtitle:"Monday · May 25, 2025", events:[
+      {id:"e501",time:"08:00",emoji:"🏠",name:"岩木マンション（住宿）",note:"自訂",type:"hotel",highlight:false},
+      {id:"e502",time:"09:19",emoji:"🥐",name:"Toho Bakery",note:"網友說是日本人特意去的麵包店",type:"food",highlight:false},
+      {id:"e503",time:"09:56",emoji:"🎨",name:"三鷹之森吉卜力美術館",note:"",type:"sight",highlight:false},
+      {id:"e504",time:"11:56",emoji:"🛍️",name:"吉祥寺 SUN ROAD 商店街",note:"",type:"shop",highlight:false},
+      {id:"e505",time:"13:36",emoji:"🍣",name:"梅丘寿司 美登利 吉祥寺店",note:"",type:"food",highlight:false},
+      {id:"e506",time:"15:06",emoji:"🛒",name:"Sanpei Store",note:"網友說便宜的超市",type:"shop",highlight:false},
+      {id:"e507",time:"16:42",emoji:"📸",name:"7-Eleven 港區芝3丁目店（拍東京鐵塔）",note:"",type:"sight",highlight:false},
+      {id:"e508",time:"17:09",emoji:"🗼",name:"TOWER（拍東京鐵塔）",note:"",type:"sight",highlight:false},
+      {id:"e509",time:"17:54",emoji:"🍗",name:"烤雞串 鳥貴族 池袋浪漫通店",note:"",type:"food",highlight:false},
+      {id:"e510",time:"19:05",emoji:"🏠",name:"岩木マンション（住宿）",note:"",type:"hotel",highlight:false},
+    ]},
+    { id:"d6", title:"川越小江戶漫遊", subtitle:"Tuesday · May 26, 2025", events:[
+      {id:"e601",time:"08:00",emoji:"🏠",name:"岩木マンション（住宿）",note:"自訂",type:"hotel",highlight:false},
+      {id:"e602",time:"10:17",emoji:"🌸",name:"大正浪漫夢通",note:"",type:"sight",highlight:false},
+      {id:"e603",time:"11:24",emoji:"🏘️",name:"小江戶橫丁",note:"",type:"sight",highlight:false},
+      {id:"e604",time:"12:26",emoji:"🔔",name:"時之鐘",note:"",type:"sight",highlight:false},
+      {id:"e605",time:"13:26",emoji:"⛩️",name:"川越冰川神社",note:"",type:"sight",highlight:false},
+      {id:"e606",time:"14:26",emoji:"🏠",name:"岩木マンション（住宿）",note:"🎌 旅程最終夜，好好休息！",type:"hotel",highlight:false},
+    ]},
+  ]
+};
+
+const uid = () => "e" + Date.now() + Math.random().toString(36).slice(2,5);
+const SK = "tokyoTrip_v2";
 const mapsUrl = (name) => `https://www.google.com/maps/search/${encodeURIComponent(name + " 日本")}`;
 
-function App() {
-  const [data] = useState({
-    title: "東京探索者 2026",
-    days: [
-      { date: "5/21", title: "抵達東京", events: [{time:"08:00", emoji:"✈️", name:"高雄國際機場"}] },
-      { date: "5/22", title: "迪士尼樂園", events: [{time:"09:00", emoji:"🎡", name:"東京迪士尼樂園"}] }
-    ]
-  });
+// ── btn styles ──
+function btn(v) {
+  const base = {display:"inline-flex",alignItems:"center",gap:6,fontFamily:"monospace",fontSize:12,letterSpacing:"0.06em",padding:"7px 14px",borderRadius:8,cursor:"pointer",transition:"all .2s",whiteSpace:"nowrap",border:"1.5px solid"};
+  if(v==="primary") return {...base,background:C.clay,color:C.cream,borderColor:C.clay};
+  if(v==="ghost")   return {...base,background:"transparent",color:C.clay,borderColor:C.sand};
+  if(v==="danger")  return {...base,background:"transparent",color:C.rust,borderColor:"#E8C4B4"};
+  return base;
+}
+const tabBase   = {padding:"12px 16px",fontFamily:"monospace",fontSize:12,letterSpacing:"0.07em",color:C.muted,cursor:"pointer",borderBottom:"2px solid transparent",background:"none",borderTop:"none",borderLeft:"none",borderRight:"none",whiteSpace:"nowrap",transition:"all .2s"};
+const tabActive = {color:C.umber,borderBottomColor:C.rust,fontWeight:600};
+const inp = {width:"100%",padding:"9px 11px",background:C.parchment,border:`1.5px solid ${C.sand}`,borderRadius:8,fontFamily:"'Noto Serif TC',serif",fontSize:14,color:C.text,outline:"none"};
 
-  return (
-    <div className="container">
-      <h1>{data.title}</h1>
-      {data.days.map((day, i) => (
-        <div key={i} className="day">
-          <h2>Day {i+1} - {day.date} {day.title}</h2>
-          {day.events.map((ev, j) => (
-            <div key={j} className="event">
-              <span className="time">{ev.time}</span>
-              <span>{ev.emoji}</span>
-              <a href={mapsUrl(ev.name)} target="_blank">{ev.name}</a>
-            </div>
-          ))}
-        </div>
-      ))}
+// ── FormField ──
+function FF({label,children,mb=0}){
+  return(
+    <div style={{marginBottom:mb}}>
+      <div style={{fontFamily:"monospace",fontSize:10,letterSpacing:"0.12em",color:C.muted,textTransform:"uppercase",marginBottom:6}}>{label}</div>
+      {children}
     </div>
   );
 }
 
-const root = ReactDOM.createRoot(document.getElementById("root"));
-root.render(<App />);
+// ── EditableText ──
+function EditableText({value,onChange,style,placeholder}){
+  const [editing,setEditing]=useState(false);
+  const [val,setVal]=useState(value);
+  useEffect(()=>setVal(value),[value]);
+  if(editing) return(
+    <input value={val} autoFocus spellCheck={false}
+      onChange={e=>setVal(e.target.value)}
+      onBlur={()=>{setEditing(false);onChange(val);}}
+      onKeyDown={e=>e.key==="Enter"&&e.currentTarget.blur()}
+      style={{...style,background:"transparent",border:"none",outline:"none",borderBottom:`2px dashed ${C.sand}`,paddingBottom:2}}/>
+  );
+  return(
+    <span onClick={()=>setEditing(true)}
+      style={{...style,cursor:"text",borderBottom:"2px dashed transparent",transition:"border-color .2s"}}
+      onMouseEnter={e=>e.currentTarget.style.borderBottomColor=C.sand}
+      onMouseLeave={e=>e.currentTarget.style.borderBottomColor="transparent"}>
+      {val||<span style={{opacity:.35}}>{placeholder}</span>}
+    </span>
+  );
+}
+
+// ── EventCard ──
+function EventCard({ev,onEdit,onDelete,onMoveUp,onMoveDown,onFieldChange}){
+  const [hovered,setHovered]=useState(false);
+  const tm=TYPE_META[ev.type]??TYPE_META.sight;
+  const gmUrl=mapsUrl(ev.name);
+  return(
+    <div
+      style={{position:"relative",background:ev.highlight?"linear-gradient(135deg,#F5EFE6,#EAD9C0)":C.parchment,border:ev.highlight?`2px solid ${C.gold}`:`1px solid ${C.sand}`,borderLeft:ev.highlight?`2px solid ${C.gold}`:`3px solid ${tm.color}`,borderRadius:12,padding:ev.highlight?"20px 16px":"14px 16px",marginBottom:12,transition:"transform .2s,box-shadow .2s",transform:hovered?"translateX(3px)":"none",boxShadow:hovered?"-3px 4px 16px rgba(107,76,59,.12)":"none"}}
+      onMouseEnter={()=>setHovered(true)} onMouseLeave={()=>setHovered(false)}>
+      <div style={{position:"absolute",left:-22,top:18,width:10,height:10,borderRadius:"50%",background:hovered?C.clay:C.sand,border:`2px solid ${C.clay}`,transition:"background .2s"}}/>
+      {ev.highlight&&(
+        <input value={ev.emoji||"🎡"} onChange={e=>onFieldChange("emoji",e.target.value)} maxLength={4}
+          style={{fontSize:"1.8rem",background:"transparent",border:"none",outline:"none",cursor:"text",display:"block",marginBottom:10,width:50}}/>
+      )}
+      <div style={{display:"flex",alignItems:"flex-start",gap:10}}>
+        <div style={{flex:1,minWidth:0}}>
+          <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:5}}>
+            <input type="time" value={ev.time} onChange={e=>onFieldChange("time",e.target.value)}
+              style={{fontFamily:"monospace",fontSize:11,color:C.muted,background:"transparent",border:"none",outline:"none",width:56}}/>
+            <span onClick={onEdit}
+              style={{fontSize:11,fontFamily:"monospace",letterSpacing:"0.06em",padding:"2px 8px",borderRadius:4,background:C.sand,color:C.bark,cursor:"pointer",flexShrink:0,transition:"background .2s"}}
+              onMouseEnter={e=>e.currentTarget.style.background=C.clay}
+              onMouseLeave={e=>e.currentTarget.style.background=C.sand}>
+              {tm.label}
+            </span>
+          </div>
+          <div style={{display:"flex",alignItems:"center",gap:6,marginBottom:ev.note?5:0}}>
+            {!ev.highlight&&<span style={{fontSize:"1.05rem",flexShrink:0}}>{ev.emoji}</span>}
+            <a href={gmUrl} target="_blank" rel="noopener noreferrer" title="在 Google 地圖搜尋"
+              style={{fontFamily:"'Noto Serif TC',serif",fontSize:"0.98rem",fontWeight:600,color:C.umber,textDecoration:"none",flex:1,minWidth:0,borderBottom:`1px solid ${hovered?C.clay:"transparent"}`,transition:"border-color .2s, color .2s",display:"flex",alignItems:"center",gap:5}}
+              onMouseEnter={e=>{e.currentTarget.style.color=C.rust;}}
+              onMouseLeave={e=>{e.currentTarget.style.color=C.umber;}}>
+              <span style={{flex:1}}>{ev.name}</span>
+              <span style={{fontSize:13,opacity:hovered?0.7:0,transition:"opacity .2s",flexShrink:0}}>📍</span>
+            </a>
+          </div>
+          {ev.note&&(
+            <div style={{fontFamily:"'Noto Serif TC',serif",fontSize:12,color:C.muted,fontStyle:"italic",lineHeight:1.5,paddingLeft:ev.highlight?0:"1.6rem",marginTop:2}}>
+              {ev.note}
+            </div>
+          )}
+        </div>
+        <div style={{display:"flex",flexDirection:"column",gap:4,opacity:hovered?1:0,transition:"opacity .2s",flexShrink:0}}>
+          {[["✏️","編輯",onEdit],["↑","上移",onMoveUp],["↓","下移",onMoveDown],["🗑","刪除",onDelete]].map(([icon,title,fn])=>(
+            <button key={icon} title={title} onClick={fn}
+              style={{width:26,height:26,borderRadius:6,border:`1px solid ${C.sand}`,background:C.cream,cursor:"pointer",fontSize:12,display:"flex",alignItems:"center",justifyContent:"center",transition:"all .2s"}}
+              onMouseEnter={e=>{e.currentTarget.style.background=icon==="🗑"?"#FDF0EB":C.parchment;e.currentTarget.style.borderColor=icon==="🗑"?C.rust:C.clay;}}
+              onMouseLeave={e=>{e.currentTarget.style.background=C.cream;e.currentTarget.style.borderColor=C.sand;}}>
+              {icon}
+            </button>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ══ MAIN APP ══
+function App(){
+  const [data,setData]=useState(null);
+  const [activeDay,setActiveDay]=useState(0);
+  const [modal,setModal]=useState(null);
+  const [form,setForm]=useState({});
+  const [toast,setToast]=useState("");
+  const saveTimer=useRef(null);
+
+  useEffect(()=>{
+    try{
+      const saved=localStorage.getItem(SK);
+      setData(saved?JSON.parse(saved):JSON.parse(JSON.stringify(DEFAULT)));
+    }catch{setData(JSON.parse(JSON.stringify(DEFAULT)));}
+  },[]);
+
+  const persist=useCallback((d)=>{
+    clearTimeout(saveTimer.current);
+    saveTimer.current=setTimeout(()=>{try{localStorage.setItem(SK,JSON.stringify(d));}catch{}},400);
+  },[]);
+
+  const update=useCallback((fn)=>{
+    setData(prev=>{const next=fn(JSON.parse(JSON.stringify(prev)));persist(next);return next;});
+  },[persist]);
+
+  const showToast=(msg)=>{setToast(msg);setTimeout(()=>setToast(""),2500);};
+
+  const exportJSON=()=>{
+    const blob=new Blob([JSON.stringify(data,null,2)],{type:"application/json"});
+    const a=document.createElement("a");a.href=URL.createObjectURL(blob);a.download="東京探索者_備份.json";a.click();
+    showToast("已匯出備份 ✓");
+  };
+  const importJSON=(e)=>{
+    const file=e.target.files[0];if(!file)return;
+    const reader=new FileReader();
+    reader.onload=ev=>{
+      try{const d=JSON.parse(ev.target.result);setData(d);persist(d);setActiveDay(0);showToast("已匯入備份 ✓");}
+      catch{showToast("❌ 檔案格式錯誤");}
+    };
+    reader.readAsText(file);e.target.value="";
+  };
+
+  const openAddEvent=(dayId)=>{setForm({time:"09:00",emoji:"",name:"",note:"",type:"sight",highlight:false});setModal({type:"event",dayId,eventId:null});};
+  const openEditEvent=(dayId,eventId)=>{const ev=data.days.find(d=>d.id===dayId).events.find(e=>e.id===eventId);setForm({...ev});setModal({type:"event",dayId,eventId});};
+  const openAddDay=()=>{setForm({title:"",subtitle:""});setModal({type:"day"});};
+
+  const saveEventModal=()=>{
+    if(!form.name.trim())return;
+    update(d=>{
+      const day=d.days.find(x=>x.id===modal.dayId);
+      const ev={...form,id:modal.eventId||uid()};
+      if(modal.eventId){day.events[day.events.findIndex(e=>e.id===modal.eventId)]=ev;}
+      else{day.events.push(ev);day.events.sort((a,b)=>a.time.localeCompare(b.time));}
+      return d;
+    });
+    setModal(null);showToast(modal.eventId?"已更新行程 ✓":"已新增行程 ✓");
+  };
+  const saveDayModal=()=>{
+    update(d=>{d.days.push({id:"d"+Date.now(),title:form.title||"新天數",subtitle:form.subtitle||"",events:[]});return d;});
+    setActiveDay(data.days.length);setModal(null);showToast("已新增天數 ✓");
+  };
+  const deleteEvent=(dayId,eventId)=>{update(d=>{const day=d.days.find(x=>x.id===dayId);day.events=day.events.filter(e=>e.id!==eventId);return d;});showToast("已刪除行程");};
+  const deleteDay=(dayId)=>{if(!window.confirm("確定刪除這整天？"))return;update(d=>{d.days=d.days.filter(x=>x.id!==dayId);return d;});setActiveDay(i=>Math.max(0,i-1));showToast("已刪除天數");};
+  const moveEvent=(dayId,eventId,dir)=>{update(d=>{const day=d.days.find(x=>x.id===dayId);const i=day.events.findIndex(e=>e.id===eventId),j=i+dir;if(j<0||j>=day.events.length)return d;[day.events[i],day.events[j]]=[day.events[j],day.events[i]];return d;});};
+  const updateField=(path,value)=>{update(d=>{const keys=path.split(".");let obj=d;for(let k of keys.slice(0,-1))obj=obj[k];obj[keys[keys.length-1]]=value;return d;});};
+
+  if(!data) return <div style={{display:"flex",height:"100vh",alignItems:"center",justifyContent:"center",background:C.cream,fontFamily:"monospace",color:C.muted}}>載入中…</div>;
+
+  const day=data.days[activeDay]??data.days[0];
+
+  return(
+    <div style={{fontFamily:"'Noto Serif TC',serif",background:C.cream,minHeight:"100vh",color:C.text}}>
+
+      {/* HERO */}
+      <div style={{background:C.bark,padding:"44px 24px 38px",textAlign:"center",position:"relative",overflow:"hidden"}}>
+        <div style={{position:"absolute",top:-150,right:-100,width:400,height:400,borderRadius:"50%",background:"radial-gradient(circle,#A0785A33,transparent 70%)",pointerEvents:"none"}}/>
+        <div style={{position:"absolute",bottom:-80,left:-80,width:300,height:300,borderRadius:"50%",background:"radial-gradient(circle,#C9973A1A,transparent 70%)",pointerEvents:"none"}}/>
+        <div style={{position:"relative",zIndex:1}}>
+          <div style={{fontFamily:"monospace",fontSize:11,letterSpacing:"0.25em",color:C.gold,textTransform:"uppercase",marginBottom:12}}>Travel · Around the World</div>
+          <EditableText value={data.heroTitle} onChange={v=>updateField("heroTitle",v)}
+            style={{fontFamily:"Georgia,serif",fontSize:"clamp(2.5rem,8vw,5.5rem)",fontWeight:900,color:C.cream,lineHeight:1,display:"block",marginBottom:6}} placeholder="旅行標題"/>
+          <EditableText value={data.heroSub} onChange={v=>updateField("heroSub",v)}
+            style={{fontFamily:"monospace",fontSize:"clamp(0.8rem,2vw,1.1rem)",letterSpacing:"0.12em",color:C.sand,display:"block",marginTop:8}} placeholder="副標題"/>
+          <div style={{display:"inline-flex",alignItems:"center",gap:10,background:C.clay,color:C.cream,padding:"8px 22px",borderRadius:999,marginTop:18,fontFamily:"monospace",fontSize:13}}>
+            <input type="date" value={data.dateStart} onChange={e=>updateField("dateStart",e.target.value)} style={{background:"transparent",border:"none",color:C.cream,fontFamily:"monospace",fontSize:13,cursor:"pointer",outline:"none"}}/>
+            <span style={{width:5,height:5,borderRadius:"50%",background:C.gold,display:"inline-block"}}/>
+            <input type="date" value={data.dateEnd} onChange={e=>updateField("dateEnd",e.target.value)} style={{background:"transparent",border:"none",color:C.cream,fontFamily:"monospace",fontSize:13,cursor:"pointer",outline:"none"}}/>
+          </div>
+        </div>
+      </div>
+
+      {/* TOOLBAR */}
+      <div style={{display:"flex",justifyContent:"flex-end",gap:8,maxWidth:960,margin:"0 auto",padding:"10px 20px",flexWrap:"wrap"}}>
+        <button onClick={exportJSON} style={btn("ghost")}>⬇ 匯出備份</button>
+        <label style={{...btn("ghost"),cursor:"pointer"}}>⬆ 匯入備份<input type="file" accept=".json" onChange={importJSON} style={{display:"none"}}/></label>
+        <button onClick={openAddDay} style={btn("primary")}>＋ 新增天數</button>
+      </div>
+
+      {/* NAV */}
+      <div style={{background:C.parchment,borderBottom:`1px solid ${C.sand}`,position:"sticky",top:0,zIndex:99}}>
+        <div style={{display:"flex",overflowX:"auto",maxWidth:960,margin:"0 auto",padding:"0 12px",scrollbarWidth:"none"}}>
+          {data.days.map((d,i)=>(
+            <button key={d.id} onClick={()=>setActiveDay(i)} style={{...tabBase,...(i===activeDay?tabActive:{}),flexShrink:0}}>
+              Day {i+1} · {d.subtitle.split("·")[1]?.trim().replace(/,.*$/,"")??d.subtitle.slice(0,5)}
+            </button>
+          ))}
+          <button onClick={openAddDay} style={{...tabBase,borderBottom:`2px dashed ${C.sand}`,color:C.sand,margin:"6px 0 0 4px",borderRadius:6,flexShrink:0}}>＋</button>
+        </div>
+      </div>
+
+      {/* DAY */}
+      {day&&(
+        <div style={{maxWidth:960,margin:"0 auto",padding:"32px 20px 80px"}}>
+          <div style={{display:"flex",alignItems:"center",gap:14,marginBottom:28,paddingBottom:18,borderBottom:`1px solid ${C.sand}`}}>
+            <span style={{fontFamily:"Georgia,serif",fontSize:"clamp(2.2rem,5vw,3.8rem)",fontWeight:900,color:C.parchment,WebkitTextStroke:`2px ${C.clay}`,lineHeight:1,flexShrink:0}}>
+              {String(activeDay+1).padStart(2,"0")}
+            </span>
+            <div style={{flex:1,minWidth:0}}>
+              <EditableText value={day.title} onChange={v=>updateField(`days.${activeDay}.title`,v)}
+                style={{fontFamily:"Georgia,serif",fontSize:"1.35rem",fontWeight:700,color:C.umber,display:"block"}} placeholder="天數標題"/>
+              <EditableText value={day.subtitle} onChange={v=>updateField(`days.${activeDay}.subtitle`,v)}
+                style={{fontFamily:"monospace",fontSize:11,letterSpacing:"0.1em",color:C.muted,display:"block",marginTop:4}} placeholder="日期"/>
+            </div>
+            <div style={{display:"flex",gap:8,flexShrink:0,flexWrap:"wrap",justifyContent:"flex-end"}}>
+              <button onClick={()=>openAddEvent(day.id)} style={btn("primary")}>＋ 新增行程</button>
+              {data.days.length>1&&<button onClick={()=>deleteDay(day.id)} style={btn("danger")}>刪除此天</button>}
+            </div>
+          </div>
+
+          <div style={{position:"relative",paddingLeft:28}}>
+            <div style={{position:"absolute",left:7,top:8,bottom:8,width:1,background:`linear-gradient(to bottom,${C.clay},${C.sage} 60%,transparent)`}}/>
+            {day.events.map(ev=>(
+              <EventCard key={ev.id} ev={ev} dayId={day.id}
+                onEdit={()=>openEditEvent(day.id,ev.id)}
+                onDelete={()=>deleteEvent(day.id,ev.id)}
+                onMoveUp={()=>moveEvent(day.id,ev.id,-1)}
+                onMoveDown={()=>moveEvent(day.id,ev.id,1)}
+                onFieldChange={(f,v)=>update(d=>{const dy=d.days.find(x=>x.id===day.id);const e=dy.events.find(x=>x.id===ev.id);e[f]=v;return d;})}
+              />
+            ))}
+            <div style={{position:"relative",marginTop:4}}>
+              <div style={{position:"absolute",left:-21,top:"50%",transform:"translateY(-50%)",width:10,height:10,borderRadius:"50%",border:`2px dashed ${C.sand}`}}/>
+              <button onClick={()=>openAddEvent(day.id)}
+                style={{width:"100%",padding:"12px 16px",background:"transparent",border:`1.5px dashed ${C.sand}`,borderRadius:12,cursor:"pointer",fontFamily:"monospace",fontSize:12,color:C.muted,letterSpacing:"0.07em",textAlign:"left",display:"flex",alignItems:"center",gap:8,transition:"all .2s"}}
+                onMouseEnter={e=>{e.currentTarget.style.borderColor=C.clay;e.currentTarget.style.color=C.clay;e.currentTarget.style.background=C.parchment;}}
+                onMouseLeave={e=>{e.currentTarget.style.borderColor=C.sand;e.currentTarget.style.color=C.muted;e.currentTarget.style.background="transparent";}}>
+                <span style={{fontSize:16}}>＋</span> 新增行程到第 {activeDay+1} 天
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL */}
+      {modal&&(
+        <div onClick={e=>{if(e.target===e.currentTarget)setModal(null)}}
+          style={{position:"fixed",inset:0,background:"rgba(61,43,31,.55)",zIndex:999,display:"flex",alignItems:"center",justifyContent:"center",padding:20,backdropFilter:"blur(3px)"}}>
+          <div style={{background:C.cream,borderRadius:16,padding:28,width:"100%",maxWidth:480,boxShadow:"0 20px 60px rgba(61,43,31,.35)",maxHeight:"90vh",overflowY:"auto"}}>
+            {modal.type==="event"&&<>
+              <h3 style={{fontFamily:"Georgia,serif",fontSize:"1.25rem",color:C.umber,marginBottom:20}}>{modal.eventId?"編輯行程":"新增行程"}</h3>
+              <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12,marginBottom:14}}>
+                <FF label="時間"><input type="time" value={form.time||""} onChange={e=>setForm(f=>({...f,time:e.target.value}))} style={inp}/></FF>
+                <FF label="Emoji"><input value={form.emoji||""} onChange={e=>setForm(f=>({...f,emoji:e.target.value}))} maxLength={4} placeholder="🎯" style={inp}/></FF>
+              </div>
+              <FF label="行程名稱" mb={14}><input value={form.name||""} onChange={e=>setForm(f=>({...f,name:e.target.value}))} placeholder="景點 / 餐廳 / 活動" style={inp} autoFocus/></FF>
+              <FF label="備註" mb={14}><input value={form.note||""} onChange={e=>setForm(f=>({...f,note:e.target.value}))} placeholder="補充說明、提醒事項…" style={inp}/></FF>
+              <FF label="類型" mb={14}>
+                <div style={{display:"flex",flexWrap:"wrap",gap:8}}>
+                  {Object.entries(TYPE_META).map(([t,m])=>(
+                    <button key={t} onClick={()=>setForm(f=>({...f,type:t}))}
+                      style={{padding:"5px 14px",borderRadius:8,border:`1.5px solid ${form.type===t?m.color:C.sand}`,cursor:"pointer",fontFamily:"monospace",fontSize:11,background:form.type===t?m.color:C.parchment,color:form.type===t?"#fff":C.muted,transition:"all .2s"}}>
+                      {m.label}
+                    </button>
+                  ))}
+                </div>
+              </FF>
+              <label style={{display:"flex",alignItems:"center",gap:8,fontFamily:"monospace",fontSize:12,color:C.muted,marginBottom:20,cursor:"pointer"}}>
+                <input type="checkbox" checked={form.highlight||false} onChange={e=>setForm(f=>({...f,highlight:e.target.checked}))}/>
+                ⭐ 設為重點行程（大卡片）
+              </label>
+              <div style={{display:"flex",justifyContent:"flex-end",gap:10}}>
+                <button onClick={()=>setModal(null)} style={btn("ghost")}>取消</button>
+                <button onClick={saveEventModal} style={btn("primary")}>儲存</button>
+              </div>
+            </>}
+            {modal.type==="day"&&<>
+              <h3 style={{fontFamily:"Georgia,serif",fontSize:"1.25rem",color:C.umber,marginBottom:20}}>新增天數</h3>
+              <FF label="天數標題" mb={14}><input value={form.title||""} onChange={e=>setForm(f=>({...f,title:e.target.value}))} placeholder="例：淺草寺・秋葉原" style={inp} autoFocus/></FF>
+              <FF label="日期" mb={20}><input value={form.subtitle||""} onChange={e=>setForm(f=>({...f,subtitle:e.target.value}))} placeholder="例：Wednesday · May 28, 2025" style={inp}/></FF>
+              <div style={{display:"flex",justifyContent:"flex-end",gap:10}}>
+                <button onClick={()=>setModal(null)} style={btn("ghost")}>取消</button>
+                <button onClick={saveDayModal} style={btn("primary")}>新增</button>
+              </div>
+            </>}
+          </div>
+        </div>
+      )}
+
+      {toast&&<div style={{position:"fixed",bottom:24,right:24,zIndex:9999,background:C.bark,color:C.cream,padding:"11px 18px",borderRadius:10,fontFamily:"monospace",fontSize:12,boxShadow:"0 8px 24px rgba(0,0,0,.25)"}}>{toast}</div>}
+
+      <div style={{textAlign:"center",padding:"28px 24px",fontFamily:"monospace",fontSize:11,color:C.muted,borderTop:`1px solid ${C.sand}`}}>
+        點行程名稱可直接開啟 Google 地圖 · 資料自動儲存於瀏覽器
+      </div>
+    </div>
+  );
+}
+
+ReactDOM.createRoot(document.getElementById("root")).render(<App/>);
 </script>
 </body>
 </html>
