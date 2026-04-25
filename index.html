@@ -9,6 +9,11 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.2/babel.min.js"></script>
+
+<!-- ★ Firebase SDK (v9 compat 模式) -->
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-database-compat.js"></script>
+
 <style>
   *{box-sizing:border-box;margin:0;padding:0;}
   body{font-family:'Noto Serif TC',serif;background:#F5EFE6;color:#2C1A0E;}
@@ -17,10 +22,36 @@
   ::-webkit-scrollbar{height:4px;width:4px;}
   ::-webkit-scrollbar-track{background:transparent;}
   ::-webkit-scrollbar-thumb{background:#C8B89A;border-radius:2px;}
+
+  /* 同步狀態動畫 */
+  @keyframes spin { to { transform: rotate(360deg); } }
+  @keyframes fadeIn { from{opacity:0;transform:translateY(-6px)} to{opacity:1;transform:translateY(0)} }
+  .syncing-icon { display:inline-block; animation: spin 1s linear infinite; }
+  .toast-anim { animation: fadeIn .25s ease; }
 </style>
 </head>
 <body>
 <div id="root"></div>
+
+<!-- ★ Firebase 設定區塊 ── 修改這裡 ── -->
+<script>
+  // ↓↓↓ 把你的 Firebase 設定貼在這裡 ↓↓↓
+  const FIREBASE_CONFIG = {
+    apiKey: "AIzaSyAptV98_KlzvgTe6ga4NnWXlgifKa8s2Sc",
+    authDomain: "tokyo-abc8d.firebaseapp.com",
+    databaseURL: "https://tokyo-abc8d-default-rtdb.asia-southeast1.firebasedatabase.app",   // ← 例：https://xxx-default-rtdb.asia-southeast1.firebasedatabase.app
+    projectId: "tokyo-abc8d",
+    storageBucket: "tokyo-abc8d.firebasestorage.app",
+    messagingSenderId: "999289269073",
+    appId: "1:999289269073:web:dfac156de64c835c9dc170"
+  };
+  // ↑↑↑ 設定到這裡 ↑↑↑
+
+  firebase.initializeApp(FIREBASE_CONFIG);
+  const db = firebase.database();
+  const TRIP_REF = db.ref("tokyoTrip_v2"); // Firebase 節點路徑
+</script>
+
 <script type="text/babel">
 const { useState, useEffect, useCallback, useRef } = React;
 
@@ -28,6 +59,7 @@ const C = {
   sand:"#C8B89A", clay:"#A0785A", umber:"#6B4C3B", bark:"#3D2B1F",
   cream:"#F5EFE6", parchment:"#EAE0D0", moss:"#6B7C5C", sage:"#A3AF8F",
   rust:"#B85C38", gold:"#C9973A", text:"#2C1A0E", muted:"#8A7260", blue:"#7BA3C0",
+  green:"#4CAF82", red:"#C0392B",
 };
 
 const TYPE_META = {
@@ -102,7 +134,6 @@ const DEFAULT = {
 };
 
 const uid = () => "e" + Date.now() + Math.random().toString(36).slice(2,5);
-const SK = "tokyoTrip_v2";
 const mapsUrl = (name) => `https://www.google.com/maps/search/${encodeURIComponent(name + " 日本")}`;
 
 // ── btn styles ──
@@ -206,6 +237,24 @@ function EventCard({ev,onEdit,onDelete,onMoveUp,onMoveDown,onFieldChange}){
   );
 }
 
+// ══ SYNC STATUS BADGE ══
+function SyncBadge({status}){
+  // status: "synced" | "syncing" | "offline" | "error"
+  const MAP = {
+    synced:  { icon:"☁️", text:"已同步",  color:C.green  },
+    syncing: { icon:"⟳",  text:"同步中…", color:C.gold   },
+    offline: { icon:"📵", text:"離線",    color:C.muted  },
+    error:   { icon:"⚠️", text:"同步失敗", color:C.rust   },
+  };
+  const s = MAP[status] ?? MAP.synced;
+  return (
+    <div style={{display:"inline-flex",alignItems:"center",gap:5,fontFamily:"monospace",fontSize:11,color:s.color,background:C.parchment,border:`1px solid ${s.color}30`,borderRadius:20,padding:"4px 10px",letterSpacing:"0.05em"}}>
+      <span className={status==="syncing"?"syncing-icon":""}>{s.icon}</span>
+      {s.text}
+    </div>
+  );
+}
+
 // ══ MAIN APP ══
 function App(){
   const [data,setData]=useState(null);
@@ -213,18 +262,73 @@ function App(){
   const [modal,setModal]=useState(null);
   const [form,setForm]=useState({});
   const [toast,setToast]=useState("");
+  const [syncStatus,setSyncStatus]=useState("syncing"); // synced | syncing | offline | error
   const saveTimer=useRef(null);
+  const isFirstLoad=useRef(true);
 
+  // ★ 從 Firebase 讀取資料（初始化，監聽即時更新）
   useEffect(()=>{
-    try{
-      const saved=localStorage.getItem(SK);
-      setData(saved?JSON.parse(saved):JSON.parse(JSON.stringify(DEFAULT)));
-    }catch{setData(JSON.parse(JSON.stringify(DEFAULT)));}
+    const ref = window.TRIP_REF ?? (typeof TRIP_REF !== "undefined" ? TRIP_REF : null);
+    if(!ref){ // Firebase 未設定，fallback 到 localStorage
+      try{
+        const saved=localStorage.getItem("tokyoTrip_v2");
+        setData(saved?JSON.parse(saved):JSON.parse(JSON.stringify(DEFAULT)));
+        setSyncStatus("offline");
+      }catch{setData(JSON.parse(JSON.stringify(DEFAULT)));setSyncStatus("offline");}
+      return;
+    }
+
+    setSyncStatus("syncing");
+    // 監聽 Firebase 資料變化
+    const unsubscribe = ref.on("value",
+      (snapshot)=>{
+        const val = snapshot.val();
+        if(isFirstLoad.current){
+          isFirstLoad.current = false;
+          if(val){
+            setData(val);
+          } else {
+            // 第一次：上傳預設資料
+            const initial = JSON.parse(JSON.stringify(DEFAULT));
+            ref.set(initial);
+            setData(initial);
+          }
+          setSyncStatus("synced");
+        } else {
+          // 其他裝置修改時，自動更新
+          if(val) setData(val);
+          setSyncStatus("synced");
+        }
+      },
+      (error)=>{
+        console.error("Firebase error:", error);
+        setSyncStatus("error");
+        // fallback to localStorage
+        try{
+          const saved=localStorage.getItem("tokyoTrip_v2");
+          setData(saved?JSON.parse(saved):JSON.parse(JSON.stringify(DEFAULT)));
+        }catch{setData(JSON.parse(JSON.stringify(DEFAULT)));}
+      }
+    );
+    return ()=> ref.off("value", unsubscribe);
   },[]);
 
+  // ★ 儲存到 Firebase（防抖 400ms）
   const persist=useCallback((d)=>{
     clearTimeout(saveTimer.current);
-    saveTimer.current=setTimeout(()=>{try{localStorage.setItem(SK,JSON.stringify(d));}catch{}},400);
+    setSyncStatus("syncing");
+    saveTimer.current=setTimeout(()=>{
+      const ref = window.TRIP_REF ?? (typeof TRIP_REF !== "undefined" ? TRIP_REF : null);
+      if(ref){
+        ref.set(d)
+          .then(()=>setSyncStatus("synced"))
+          .catch(()=>setSyncStatus("error"));
+      } else {
+        // fallback
+        try{localStorage.setItem("tokyoTrip_v2",JSON.stringify(d));}catch{}
+        setSyncStatus("offline");
+      }
+    },400);
   },[]);
 
   const update=useCallback((fn)=>{
@@ -242,7 +346,12 @@ function App(){
     const file=e.target.files[0];if(!file)return;
     const reader=new FileReader();
     reader.onload=ev=>{
-      try{const d=JSON.parse(ev.target.result);setData(d);persist(d);setActiveDay(0);showToast("已匯入備份 ✓");}
+      try{
+        const d=JSON.parse(ev.target.result);
+        const ref = window.TRIP_REF ?? (typeof TRIP_REF !== "undefined" ? TRIP_REF : null);
+        if(ref){ setSyncStatus("syncing"); ref.set(d).then(()=>setSyncStatus("synced")); }
+        setData(d);setActiveDay(0);showToast("已匯入備份 ✓ 並同步至雲端");
+      }
       catch{showToast("❌ 檔案格式錯誤");}
     };
     reader.readAsText(file);e.target.value="";
@@ -272,7 +381,10 @@ function App(){
   const moveEvent=(dayId,eventId,dir)=>{update(d=>{const day=d.days.find(x=>x.id===dayId);const i=day.events.findIndex(e=>e.id===eventId),j=i+dir;if(j<0||j>=day.events.length)return d;[day.events[i],day.events[j]]=[day.events[j],day.events[i]];return d;});};
   const updateField=(path,value)=>{update(d=>{const keys=path.split(".");let obj=d;for(let k of keys.slice(0,-1))obj=obj[k];obj[keys[keys.length-1]]=value;return d;});};
 
-  if(!data) return <div style={{display:"flex",height:"100vh",alignItems:"center",justifyContent:"center",background:C.cream,fontFamily:"monospace",color:C.muted}}>載入中…</div>;
+  if(!data) return <div style={{display:"flex",height:"100vh",alignItems:"center",justifyContent:"center",background:C.cream,fontFamily:"monospace",color:C.muted,flexDirection:"column",gap:12}}>
+    <div className="syncing-icon" style={{fontSize:28}}>⟳</div>
+    <div>從 Firebase 載入中…</div>
+  </div>;
 
   const day=data.days[activeDay]??data.days[0];
 
@@ -298,10 +410,14 @@ function App(){
       </div>
 
       {/* TOOLBAR */}
-      <div style={{display:"flex",justifyContent:"flex-end",gap:8,maxWidth:960,margin:"0 auto",padding:"10px 20px",flexWrap:"wrap"}}>
-        <button onClick={exportJSON} style={btn("ghost")}>⬇ 匯出備份</button>
-        <label style={{...btn("ghost"),cursor:"pointer"}}>⬆ 匯入備份<input type="file" accept=".json" onChange={importJSON} style={{display:"none"}}/></label>
-        <button onClick={openAddDay} style={btn("primary")}>＋ 新增天數</button>
+      <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",maxWidth:960,margin:"0 auto",padding:"10px 20px",flexWrap:"wrap",gap:8}}>
+        {/* ★ 同步狀態徽章 */}
+        <SyncBadge status={syncStatus}/>
+        <div style={{display:"flex",gap:8,flexWrap:"wrap"}}>
+          <button onClick={exportJSON} style={btn("ghost")}>⬇ 匯出備份</button>
+          <label style={{...btn("ghost"),cursor:"pointer"}}>⬆ 匯入備份<input type="file" accept=".json" onChange={importJSON} style={{display:"none"}}/></label>
+          <button onClick={openAddDay} style={btn("primary")}>＋ 新增天數</button>
+        </div>
       </div>
 
       {/* NAV */}
@@ -404,10 +520,10 @@ function App(){
         </div>
       )}
 
-      {toast&&<div style={{position:"fixed",bottom:24,right:24,zIndex:9999,background:C.bark,color:C.cream,padding:"11px 18px",borderRadius:10,fontFamily:"monospace",fontSize:12,boxShadow:"0 8px 24px rgba(0,0,0,.25)"}}>{toast}</div>}
+      {toast&&<div className="toast-anim" style={{position:"fixed",bottom:24,right:24,zIndex:9999,background:C.bark,color:C.cream,padding:"11px 18px",borderRadius:10,fontFamily:"monospace",fontSize:12,boxShadow:"0 8px 24px rgba(0,0,0,.25)"}}>{toast}</div>}
 
       <div style={{textAlign:"center",padding:"28px 24px",fontFamily:"monospace",fontSize:11,color:C.muted,borderTop:`1px solid ${C.sand}`}}>
-        點行程名稱可直接開啟 Google 地圖 · 資料自動儲存於瀏覽器
+        點行程名稱可直接開啟 Google 地圖 · ☁️ 資料即時同步至 Firebase 雲端
       </div>
     </div>
   );
