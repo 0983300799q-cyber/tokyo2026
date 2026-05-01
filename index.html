@@ -29,7 +29,7 @@
 </head>
 <body>
 <div id="root"></div>
- 
+
 <script>
   const FIREBASE_CONFIG = {
     apiKey: "AIzaSyAptV98_KlzvgTe6ga4NnWXlgifKa8s2Sc",
@@ -44,17 +44,17 @@
   const db = firebase.database();
   const TRIP_REF = db.ref("tokyoTrip_v2");
 </script>
- 
+
 <script type="text/babel">
 const { useState, useEffect, useCallback, useRef } = React;
- 
+
 const C = {
   sand:"#C8B89A", clay:"#A0785A", umber:"#6B4C3B", bark:"#3D2B1F",
   cream:"#F5EFE6", parchment:"#EAE0D0", moss:"#6B7C5C", sage:"#A3AF8F",
   rust:"#B85C38", gold:"#C9973A", text:"#2C1A0E", muted:"#8A7260", blue:"#7BA3C0",
   green:"#4CAF82", red:"#C0392B", navy:"#1a3a5c",
 };
- 
+
 const TYPE_META = {
   flight:{ label:"✈ 交通", color:C.blue },
   hotel: { label:"🏠 住宿", color:C.moss },
@@ -62,7 +62,7 @@ const TYPE_META = {
   shop:  { label:"🛍 購物", color:C.gold },
   sight: { label:"📸 景點", color:C.sage },
 };
- 
+
 const DEFAULT = {
   heroTitle:"東京探索者", heroSub:"Tōkyō Explorer",
   dateStart:"2025-05-21", dateEnd:"2025-05-26",
@@ -130,10 +130,10 @@ const DEFAULT = {
     ]},
   ]
 };
- 
+
 const uid = () => "e" + Date.now() + Math.random().toString(36).slice(2,5);
 const autoMapUrl = (name) => `https://www.google.com/maps/search/${encodeURIComponent(name + " 日本")}`;
- 
+
 function btn(v) {
   const base = {display:"inline-flex",alignItems:"center",gap:6,fontFamily:"monospace",fontSize:12,letterSpacing:"0.06em",padding:"7px 14px",borderRadius:8,cursor:"pointer",transition:"all .2s",whiteSpace:"nowrap",border:"1.5px solid"};
   if(v==="primary") return {...base,background:C.clay,color:C.cream,borderColor:C.clay};
@@ -144,7 +144,7 @@ function btn(v) {
 const tabBase   = {padding:"12px 16px",fontFamily:"monospace",fontSize:12,letterSpacing:"0.07em",color:C.muted,cursor:"pointer",borderBottom:"2px solid transparent",background:"none",borderTop:"none",borderLeft:"none",borderRight:"none",whiteSpace:"nowrap",transition:"all .2s"};
 const tabActive = {color:C.umber,borderBottomColor:C.rust,fontWeight:600};
 const inp = {width:"100%",padding:"9px 11px",background:C.parchment,border:`1.5px solid ${C.sand}`,borderRadius:8,fontFamily:"'Noto Serif TC',serif",fontSize:14,color:C.text,outline:"none"};
- 
+
 function FF({label,children,mb=0}){
   return(
     <div style={{marginBottom:mb}}>
@@ -153,7 +153,7 @@ function FF({label,children,mb=0}){
     </div>
   );
 }
- 
+
 function EditableText({value,onChange,style,placeholder}){
   const [editing,setEditing]=useState(false);
   const [val,setVal]=useState(value);
@@ -174,7 +174,7 @@ function EditableText({value,onChange,style,placeholder}){
     </span>
   );
 }
- 
+
 // ★ 地圖小面板
 function MapPanel({ev, onClose, onSaveUrl}){
   const [url, setUrl] = useState(ev.mapUrl||"");
@@ -198,18 +198,18 @@ function MapPanel({ev, onClose, onSaveUrl}){
     </div>
   );
 }
- 
+
 // ★ 航班資訊區塊
 function FlightBanner({flight, onEdit}){
   const [editMode, setEditMode] = useState(false);
   const [form, setForm] = useState(flight);
   useEffect(()=>setForm(flight),[flight]);
- 
+
   const fld = (key, sub) => (
     <input value={form[sub][key]||""} onChange={e=>setForm(f=>({...f,[sub]:{...f[sub],[key]:e.target.value}}))}
       style={{background:"transparent",border:"none",outline:"none",borderBottom:"1px dashed rgba(255,255,255,0.4)",color:"#fff",fontFamily:"monospace",fontSize:11,width: key==="airline"?80: key==="flightNo"?60: key==="from"||key==="to"?90:48,textAlign:"center",padding:"1px 0"}}/>
   );
- 
+
   return(
     <div style={{background:`linear-gradient(135deg,${C.navy},#2a5298)`,padding:"14px 20px",fontFamily:"monospace"}}>
       <div style={{maxWidth:960,margin:"0 auto"}}>
@@ -250,19 +250,18 @@ function FlightBanner({flight, onEdit}){
     </div>
   );
 }
- 
+
 // ★ EventCard 升級版
-function EventCard({ev, dayId, onEdit, onDelete, onMoveUp, onMoveDown, onFieldChange, onSaveMapUrl}){
+function EventCard({ev, dayId, onEdit, onDelete, onMoveUp, onMoveDown, onFieldChange}){
   const [hovered, setHovered] = useState(false);
-  const [showMap, setShowMap] = useState(false);
   const tm = TYPE_META[ev.type] ?? TYPE_META.sight;
   const finalMapUrl = ev.mapUrl || autoMapUrl(ev.name);
- 
+
   // ★ 時間改完自動排序（blur 時觸發）
   const handleTimeBlur = (newTime) => {
     onFieldChange("time", newTime);
   };
- 
+
   return(
     <div style={{position:"relative",marginBottom:12}}>
       <div
@@ -276,11 +275,7 @@ function EventCard({ev, dayId, onEdit, onDelete, onMoveUp, onMoveDown, onFieldCh
         <div style={{display:"flex",alignItems:"flex-start",gap:10}}>
           <div style={{flex:1,minWidth:0}}>
             <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:5}}>
-              {/* ★ 時間欄位 blur 後排序 */}
-              <input type="time" value={ev.time}
-                onChange={e=>onFieldChange("time",e.target.value)}
-                onBlur={e=>handleTimeBlur(e.target.value)}
-                style={{fontFamily:"monospace",fontSize:11,color:C.muted,background:"transparent",border:"none",outline:"none",width:56}}/>
+                <span style={{fontFamily:"monospace",fontSize:11,color:C.muted,minWidth:36}}>{ev.time}</span>
               <span onClick={onEdit}
                 style={{fontSize:11,fontFamily:"monospace",letterSpacing:"0.06em",padding:"2px 8px",borderRadius:4,background:C.sand,color:C.bark,cursor:"pointer",flexShrink:0,transition:"background .2s"}}
                 onMouseEnter={e=>e.currentTarget.style.background=C.clay}
@@ -297,14 +292,7 @@ function EventCard({ev, dayId, onEdit, onDelete, onMoveUp, onMoveDown, onFieldCh
                 onMouseLeave={e=>e.currentTarget.style.color=C.umber}>
                 <span style={{flex:1}}>{ev.name}</span>
               </a>
-              {/* ★ 地圖 icon 按鈕 */}
-              <button onClick={e=>{e.stopPropagation();e.preventDefault();setShowMap(v=>!v);}}
-                title="設定地圖連結"
-                style={{flexShrink:0,background:"none",border:"none",cursor:"pointer",fontSize:14,padding:"2px 4px",borderRadius:6,color:ev.mapUrl?C.blue:C.sand,transition:"color .2s,background .2s"}}
-                onMouseEnter={e=>e.currentTarget.style.color=C.blue}
-                onMouseLeave={e=>e.currentTarget.style.color=ev.mapUrl?C.blue:C.sand}>
-                📍
-              </button>
+
             </div>
             {/* ★ 備註：正常字體、不斜體、顏色深 */}
             {ev.note&&(
@@ -325,15 +313,46 @@ function EventCard({ev, dayId, onEdit, onDelete, onMoveUp, onMoveDown, onFieldCh
           </div>
         </div>
       </div>
- 
-      {/* ★ 地圖小面板 */}
-      {showMap&&(
-        <MapPanel ev={ev} onClose={()=>setShowMap(false)} onSaveUrl={(url)=>onSaveMapUrl(url)}/>
-      )}
+
     </div>
   );
 }
- 
+
+// DayMapButton
+function DayMapButton({events}){
+  const openDayMap = () => {
+    const stops = events.filter(e => e.type !== 'flight').map(e => e.name + ' 日本');
+    if(stops.length === 0){ alert('這天沒有可顯示的地點'); return; }
+    let url;
+    if(stops.length === 1){
+      url = 'https://www.google.com/maps/search/' + encodeURIComponent(stops[0]);
+    } else {
+      const origin = encodeURIComponent(stops[0]);
+      const dest   = encodeURIComponent(stops[stops.length-1]);
+      const wps    = stops.slice(1,-1).map(s=>encodeURIComponent(s)).join('/');
+      url = wps
+        ? 'https://www.google.com/maps/dir/'+origin+'/'+wps+'/'+dest+'/'
+        : 'https://www.google.com/maps/dir/'+origin+'/'+dest+'/';
+    }
+    window.open(url, '_blank');
+  };
+  const count = events.filter(e => e.type !== 'flight').length;
+  return(
+    <div style={{position:'relative',margin:'16px 0 8px'}}>
+      <div style={{position:'absolute',left:-21,top:'50%',transform:'translateY(-50%)',width:10,height:10,borderRadius:'50%',background:'#4CAF82',border:'2px solid #fff',boxShadow:'0 0 0 2px #4CAF82'}}/>
+      <button onClick={openDayMap}
+        style={{width:'100%',padding:'13px 16px',background:'linear-gradient(135deg,#4CAF82,#3a9a6e)',border:'none',borderRadius:12,cursor:'pointer',fontFamily:'monospace',fontSize:12,color:'#fff',letterSpacing:'0.07em',display:'flex',alignItems:'center',gap:10,transition:'all .2s',boxShadow:'0 2px 8px rgba(76,175,130,.3)'}}
+        onMouseEnter={e=>{e.currentTarget.style.transform='translateX(3px)';e.currentTarget.style.boxShadow='0 4px 16px rgba(76,175,130,.4)';}}
+        onMouseLeave={e=>{e.currentTarget.style.transform='none';e.currentTarget.style.boxShadow='0 2px 8px rgba(76,175,130,.3)';}}>
+        <span style={{fontSize:18}}>🗺️</span>
+        <span style={{flex:1}}>查看今日路線地圖</span>
+        <span style={{fontSize:11,opacity:0.8,background:'rgba(255,255,255,0.2)',padding:'2px 8px',borderRadius:10}}>{count} 個地點</span>
+        <span style={{fontSize:14,opacity:0.7}}>↗</span>
+      </button>
+    </div>
+  );
+}
+
 function SyncBadge({status}){
   const MAP = {
     synced:  { icon:"☁️", text:"已同步",  color:C.green },
@@ -349,7 +368,7 @@ function SyncBadge({status}){
     </div>
   );
 }
- 
+
 function App(){
   const [data,setData]=useState(null);
   const [activeDay,setActiveDay]=useState(0);
@@ -359,7 +378,7 @@ function App(){
   const [syncStatus,setSyncStatus]=useState("syncing");
   const saveTimer=useRef(null);
   const isFirstLoad=useRef(true);
- 
+
   useEffect(()=>{
     const ref = typeof TRIP_REF !== "undefined" ? TRIP_REF : null;
     if(!ref){
@@ -388,7 +407,7 @@ function App(){
     );
     return ()=> ref.off("value", unsubscribe);
   },[]);
- 
+
   const persist=useCallback((d)=>{
     clearTimeout(saveTimer.current);
     setSyncStatus("syncing");
@@ -398,13 +417,13 @@ function App(){
       else{ try{localStorage.setItem("tokyoTrip_v2",JSON.stringify(d));}catch{} setSyncStatus("offline"); }
     },400);
   },[]);
- 
+
   const update=useCallback((fn)=>{
     setData(prev=>{const next=fn(JSON.parse(JSON.stringify(prev)));persist(next);return next;});
   },[persist]);
- 
+
   const showToast=(msg)=>{setToast(msg);setTimeout(()=>setToast(""),2500);};
- 
+
   const exportJSON=()=>{
     const blob=new Blob([JSON.stringify(data,null,2)],{type:"application/json"});
     const a=document.createElement("a");a.href=URL.createObjectURL(blob);a.download="東京探索者_備份.json";a.click();
@@ -423,11 +442,11 @@ function App(){
     };
     reader.readAsText(file);e.target.value="";
   };
- 
+
   const openAddEvent=(dayId)=>{setForm({time:"09:00",emoji:"",name:"",note:"",type:"sight",highlight:false,mapUrl:""});setModal({type:"event",dayId,eventId:null});};
   const openEditEvent=(dayId,eventId)=>{const ev=data.days.find(d=>d.id===dayId).events.find(e=>e.id===eventId);setForm({...ev});setModal({type:"event",dayId,eventId});};
   const openAddDay=()=>{setForm({title:"",subtitle:""});setModal({type:"day"});};
- 
+
   const saveEventModal=()=>{
     if(!form.name.trim())return;
     update(d=>{
@@ -449,8 +468,8 @@ function App(){
   const deleteDay=(dayId)=>{if(!window.confirm("確定刪除這整天？"))return;update(d=>{d.days=d.days.filter(x=>x.id!==dayId);return d;});setActiveDay(i=>Math.max(0,i-1));showToast("已刪除天數");};
   const moveEvent=(dayId,eventId,dir)=>{update(d=>{const day=d.days.find(x=>x.id===dayId);const i=day.events.findIndex(e=>e.id===eventId),j=i+dir;if(j<0||j>=day.events.length)return d;[day.events[i],day.events[j]]=[day.events[j],day.events[i]];return d;});};
   const updateField=(path,value)=>{update(d=>{const keys=path.split(".");let obj=d;for(let k of keys.slice(0,-1))obj=obj[k];obj[keys[keys.length-1]]=value;return d;});};
- 
-  // ★ 時間修改後自動排序
+
+  // 欄位修改（時間改完後自動排序）
   const handleEventFieldChange=(dayId,evId,field,value)=>{
     update(d=>{
       const dy=d.days.find(x=>x.id===dayId);
@@ -460,17 +479,17 @@ function App(){
       return d;
     });
   };
- 
+
   if(!data) return <div style={{display:"flex",height:"100vh",alignItems:"center",justifyContent:"center",background:C.cream,fontFamily:"monospace",color:C.muted,flexDirection:"column",gap:12}}>
     <div className="syncing-icon" style={{fontSize:28}}>⟳</div>
     <div>從 Firebase 載入中…</div>
   </div>;
- 
+
   const day=data.days[activeDay]??data.days[0];
- 
+
   return(
     <div style={{fontFamily:"'Noto Serif TC',serif",background:C.cream,minHeight:"100vh",color:C.text}}>
- 
+
       {/* HERO */}
       <div style={{background:C.bark,padding:"44px 24px 38px",textAlign:"center",position:"relative",overflow:"hidden"}}>
         <div style={{position:"absolute",top:-150,right:-100,width:400,height:400,borderRadius:"50%",background:"radial-gradient(circle,#A0785A33,transparent 70%)",pointerEvents:"none"}}/>
@@ -488,12 +507,12 @@ function App(){
           </div>
         </div>
       </div>
- 
+
       {/* ★ 航班資訊區塊 */}
       {data.flight&&(
         <FlightBanner flight={data.flight} onEdit={(f)=>update(d=>{d.flight=f;return d;})}/>
       )}
- 
+
       {/* TOOLBAR */}
       <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",maxWidth:960,margin:"0 auto",padding:"10px 20px",flexWrap:"wrap",gap:8}}>
         <SyncBadge status={syncStatus}/>
@@ -503,7 +522,7 @@ function App(){
           <button onClick={openAddDay} style={btn("primary")}>＋ 新增天數</button>
         </div>
       </div>
- 
+
       {/* NAV */}
       <div style={{background:C.parchment,borderBottom:`1px solid ${C.sand}`,position:"sticky",top:0,zIndex:99}}>
         <div style={{display:"flex",overflowX:"auto",maxWidth:960,margin:"0 auto",padding:"0 12px",scrollbarWidth:"none"}}>
@@ -515,7 +534,7 @@ function App(){
           <button onClick={openAddDay} style={{...tabBase,borderBottom:`2px dashed ${C.sand}`,color:C.sand,margin:"6px 0 0 4px",borderRadius:6,flexShrink:0}}>＋</button>
         </div>
       </div>
- 
+
       {/* DAY */}
       {day&&(
         <div style={{maxWidth:960,margin:"0 auto",padding:"32px 20px 80px"}}>
@@ -534,7 +553,7 @@ function App(){
               {data.days.length>1&&<button onClick={()=>deleteDay(day.id)} style={btn("danger")}>刪除此天</button>}
             </div>
           </div>
- 
+
           <div style={{position:"relative",paddingLeft:28}}>
             <div style={{position:"absolute",left:7,top:8,bottom:8,width:1,background:`linear-gradient(to bottom,${C.clay},${C.sage} 60%,transparent)`}}/>
             {day.events.map(ev=>(
@@ -544,7 +563,6 @@ function App(){
                 onMoveUp={()=>moveEvent(day.id,ev.id,-1)}
                 onMoveDown={()=>moveEvent(day.id,ev.id,1)}
                 onFieldChange={(f,v)=>handleEventFieldChange(day.id,ev.id,f,v)}
-                onSaveMapUrl={(url)=>update(d=>{const dy=d.days.find(x=>x.id===day.id);const e=dy.events.find(x=>x.id===ev.id);e.mapUrl=url;return d;})}
               />
             ))}
             <div style={{position:"relative",marginTop:4}}>
@@ -556,10 +574,14 @@ function App(){
                 <span style={{fontSize:16}}>＋</span> 新增行程到第 {activeDay+1} 天
               </button>
             </div>
+
+            {/* 今日路線地圖按鈕 */}
+            <DayMapButton events={day.events}/>
+
           </div>
         </div>
       )}
- 
+
       {/* MODAL */}
       {modal&&(
         <div onClick={e=>{if(e.target===e.currentTarget)setModal(null)}}
@@ -605,16 +627,16 @@ function App(){
           </div>
         </div>
       )}
- 
+
       {toast&&<div className="toast-anim" style={{position:"fixed",bottom:24,right:24,zIndex:9999,background:C.bark,color:C.cream,padding:"11px 18px",borderRadius:10,fontFamily:"monospace",fontSize:12,boxShadow:"0 8px 24px rgba(0,0,0,.25)"}}>{toast}</div>}
- 
+
       <div style={{textAlign:"center",padding:"28px 24px",fontFamily:"monospace",fontSize:11,color:C.muted,borderTop:`1px solid ${C.sand}`}}>
         📍 點行程旁的地圖圖示可設定正確連結 · ☁️ 資料即時同步至 Firebase 雲端
       </div>
     </div>
   );
 }
- 
+
 ReactDOM.createRoot(document.getElementById("root")).render(<App/>);
 </script>
 </body>
